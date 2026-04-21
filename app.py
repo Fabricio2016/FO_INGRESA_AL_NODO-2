@@ -1,5 +1,5 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, UploadFile, File, Request
+from fastapi.responses import JSONResponse, Response
 from ultralytics import YOLO
 import gdown, os
 from PIL import Image
@@ -11,7 +11,6 @@ app = FastAPI()
 MODEL_PATH = "model.pt"
 GDRIVE_ID  = "1tSSKvZesgWzhhX8vKBnk-7UoxkRTgKXI"
 
-# Descarga el modelo al iniciar si no existe
 if not os.path.exists(MODEL_PATH):
     print("Descargando modelo desde Google Drive...")
     gdown.download(
@@ -21,23 +20,21 @@ if not os.path.exists(MODEL_PATH):
     )
     print("Modelo descargado correctamente.")
 
-# Cargar modelo YOLO
 model = YOLO(MODEL_PATH)
 print("Modelo YOLO cargado y listo.")
 
 
-# ── Endpoint de salud ────────────────────────────────────────
-@app.get("/")
-def health():
-    return {"status": "ok", "mensaje": "API YOLO FO_INGRESA_AL_NODO funcionando"}
+# ── Health check — acepta GET y HEAD (Render usa HEAD para verificar) ──
+@app.api_route("/", methods=["GET", "HEAD"])
+def health(request: Request):
+    if request.method == "HEAD":
+        return Response(status_code=200)
+    return JSONResponse({"status": "ok", "mensaje": "API YOLO FO_INGRESA_AL_NODO funcionando"})
 
 
-# ── Endpoint de deteccion ────────────────────────────────────
+# ── Endpoint de deteccion ─────────────────────────────────────
 @app.post("/detectar")
 async def detectar(file: UploadFile = File(...)):
-    """
-    Recibe una imagen y devuelve las detecciones del modelo YOLO.
-    """
     contents = await file.read()
     image = Image.open(io.BytesIO(contents)).convert("RGB")
 
@@ -52,10 +49,8 @@ async def detectar(file: UploadFile = File(...)):
                 "bbox":      [round(x, 1) for x in box.xyxy[0].tolist()]
             })
 
-    aprobada = len(detecciones) > 0
-
     return JSONResponse({
-        "aprobada":    aprobada,
+        "aprobada":    len(detecciones) > 0,
         "total":       len(detecciones),
         "detecciones": detecciones
     })
