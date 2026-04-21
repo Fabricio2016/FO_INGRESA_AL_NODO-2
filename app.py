@@ -25,7 +25,7 @@ def preprocess(image: Image.Image) -> np.ndarray:
     return arr
 
 
-def postprocess(outputs, conf_threshold: float = 0.25):
+def postprocess(outputs, conf_threshold: float = 0.40):
     # YOLOv8 output: [1, 4+num_classes, num_anchors]
     pred = outputs[0][0]   # [4+nc, na]
     pred = pred.T          # [na, 4+nc]
@@ -63,15 +63,19 @@ def health(request: Request):
 
 # ── Deteccion ─────────────────────────────────────────────────
 @app.post("/detectar")
-async def detectar(file: UploadFile = File(...)):
+async def detectar(
+    file:       UploadFile = File(...),
+    confianza:  float = 0.40
+):
     contents = await file.read()
     image    = Image.open(io.BytesIO(contents)).convert("RGB")
     arr      = preprocess(image)
     outputs  = session.run(None, {INPUT_NAME: arr})
-    detecciones = postprocess(outputs)
+    detecciones = postprocess(outputs, conf_threshold=confianza)
 
     return JSONResponse({
         "aprobada":    len(detecciones) > 0,
         "total":       len(detecciones),
+        "confianza_minima": confianza,
         "detecciones": detecciones
     })
