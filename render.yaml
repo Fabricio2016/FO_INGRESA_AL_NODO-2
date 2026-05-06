@@ -1,0 +1,5 @@
+services:
+  - type: web
+    name: fo-ingresa-al-nodo-2
+    env: docker
+    dockerfilePath: ./Dockerfile
